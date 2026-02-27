@@ -1,0 +1,6 @@
+# Core data handling
+pandas
+numpy
+
+# SAS file reading
+pyreadstat
