@@ -28,8 +28,10 @@ ed2021_sas/
 ed2022_sas/
 
 datasets/
-3_labels/
 all_artifacts/
 catboost_info/
 cache_dir/
 trial_method/
+
+3_labels/*
+!3_labels/*.py
