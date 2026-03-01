@@ -1,28 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from fastapi.middleware.cors import CORSMiddleware
+
 from database import SessionLocal
-
-import models  # move this to top with other imports
-import crud, schemas
+from models import Patient, Visit, Prediction
+from schemas import PatientCreate, VisitCreate, PredictionResponse
 from ml import predict
-from datetime import datetime
 
-app = FastAPI(title="MediCare AI Backend")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI()
 
 
-# =====================================================
-# DATABASE DEPENDENCY
-# =====================================================
-
+# Dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -31,232 +18,133 @@ def get_db():
         db.close()
 
 
-# =====================================================
-# HEALTH CHECK
-# =====================================================
+# ==============================
+# CREATE PATIENT
+# ==============================
 
-@app.get("/")
-def health():
-    return {"status": "Backend running"}
+@app.post("/patients")
+def create_patient(request: PatientCreate, db: Session = Depends(get_db)):
 
+    patient = Patient(**request.dict())
 
-# =====================================================
-# PATIENT ENDPOINTS
-# =====================================================
+    db.add(patient)
+    db.commit()
+    db.refresh(patient)
 
-@app.post("/patients", response_model=schemas.PatientResponse)
-def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db)):
-    return crud.create_patient(db, patient.dict())
+    return patient
 
 
-@app.get("/patients/search-by-name")
-def search_patient(patient_name: str, db: Session = Depends(get_db)):
-    patients = db.query(models.Patient).filter(
-        models.Patient.full_name.ilike(f"%{patient_name}%")
-    ).all()
-
-    return patients
-
+# ==============================
+# GET PATIENT
+# ==============================
 
 @app.get("/patients/{patient_id}")
 def get_patient(patient_id: int, db: Session = Depends(get_db)):
-    patient = crud.get_patient(db, patient_id)
+
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
+
     return patient
 
-# =====================================================
-# VISIT + ML PREDICTION
-# =====================================================
 
-@app.post("/visits/predict")
-def create_visit_and_predict(
-    visit: schemas.VisitCreate,
-    db: Session = Depends(get_db)
-):
+# ==============================
+# CREATE VISIT
+# ==============================
 
-    # 1️⃣ Verify patient exists
-    patient = crud.get_patient(db, visit.patient_id)
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
+@app.post("/visits")
+def create_visit(request: VisitCreate, db: Session = Depends(get_db)):
 
-    # 2️⃣ Create visit record
-    db_visit = crud.create_visit(db, visit.dict())
+    visit = Visit(**request.dict())
 
-    # 3️⃣ Prepare ML input (merge patient age)
-    ml_input = visit.dict()
-    ml_input["age"] = patient.age
+    db.add(visit)
+    db.commit()
+    db.refresh(visit)
 
-    # 4️⃣ Run prediction
-    probability, classification = predict(ml_input)
-
-    # 5️⃣ Store prediction
-    crud.create_prediction(
-        db,
-        db_visit.id,
-        classification,
-        probability
-    )
-
-    return {
-        "visit_id": db_visit.id,
-        "classification": classification,
-        "risk_probability": probability,
-        "status": "OPEN"
-    }
+    return visit
 
 
-# =====================================================
-# UPDATE VISIT STATUS
-# =====================================================
+# ==============================
+# GET VISIT
+# ==============================
 
-@app.patch("/visits/{visit_id}/status")
-def update_visit_status(
-    visit_id: int,
-    new_status: str,
-    db: Session = Depends(get_db)
-):
+@app.get("/visits/{visit_id}")
+def get_visit(visit_id: int, db: Session = Depends(get_db)):
 
-    if new_status not in ["OPEN", "IN_REVIEW", "COMPLETED"]:
-        raise HTTPException(status_code=400, detail="Invalid status")
-
-    visit = crud.update_visit_status(db, visit_id, new_status)
+    visit = db.query(Visit).filter(Visit.id == visit_id).first()
 
     if not visit:
         raise HTTPException(status_code=404, detail="Visit not found")
 
-    return {
-        "visit_id": visit_id,
-        "new_status": new_status
+    return visit
+
+
+# ==============================
+# RUN TRIAGE
+# ==============================
+
+@app.post("/triage/{visit_id}", response_model=PredictionResponse)
+def run_triage(visit_id: int, db: Session = Depends(get_db)):
+
+    visit = db.query(Visit).filter(Visit.id == visit_id).first()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+
+    patient = db.query(Patient).filter(Patient.id == visit.patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    # ----------------------
+    # Map DB → ML input
+    # ----------------------
+
+    ml_input = {
+        "AGE": patient.age,
+        "SEX": 1 if patient.gender.lower() == "male" else 2,
+        "TEMPF": visit.temperature,
+        "PULSE": visit.pulse,
+        "RESPR": visit.respiration,
+        "BPSYS": visit.systolic_bp,
+        "BPDIAS": visit.diastolic_bp,
+        "PAINSCALE": visit.pain_scale,
+        "ARREMS": 1 if visit.arrival_mode == "Ambulance" else 0,
+        "AMBTRANSFER": 1 if visit.ambtransfer else 0,
+        "INJURY": visit.injury,
+        "RFV1": visit.rfv1,
+        "RFV2": visit.rfv2,
+        "RFV3": visit.rfv3,
+        "RFV_TEXT_ALL": visit.rfv_text
     }
 
+    label, prob, override = predict(ml_input)
 
-# =====================================================
-# UPDATE CLASSIFICATION (FLAG CRITICAL)
-# =====================================================
-
-@app.patch("/visits/{visit_id}/classification")
-def update_classification(
-    visit_id: int,
-    classification: str,
-    db: Session = Depends(get_db)
-):
-
-    if classification not in ["Critical", "Needs Review"]:
-        raise HTTPException(status_code=400, detail="Invalid classification")
-
-    prediction = crud.update_classification(db, visit_id, classification)
-
-    if not prediction:
-        raise HTTPException(status_code=404, detail="Prediction not found")
-
-    return {
-        "visit_id": visit_id,
-        "classification": classification
-    }
-
-
-# =====================================================
-# ADD PRESCRIPTION
-# =====================================================
-
-@app.post("/prescriptions")
-def add_prescription(
-    visit_id: int,
-    medicine_name: str,
-    dosage_per_day: int,
-    tablets_per_dose: int,
-    start_date: str,
-    end_date: str,
-    db: Session = Depends(get_db)
-):
-
-    start = datetime.strptime(start_date, "%Y-%m-%d").date()
-    end = datetime.strptime(end_date, "%Y-%m-%d").date()
-
-    days = (end - start).days + 1
-    total_tablets = days * dosage_per_day * tablets_per_dose
-
-    prescription_data = {
-        "visit_id": visit_id,
-        "medicine_name": medicine_name,
-        "dosage_per_day": dosage_per_day,
-        "tablets_per_dose": tablets_per_dose,
-        "start_date": start,
-        "end_date": end,
-        "total_tablets": total_tablets
-    }
-
-    prescription = crud.add_prescription(db, prescription_data)
-
-    return {
-        "prescription_id": prescription.id,
-        "total_tablets": total_tablets,
-        "status": prescription.status
-    }
-
-
-# =====================================================
-# DISCONTINUE PRESCRIPTION
-# =====================================================
-
-@app.patch("/prescriptions/{prescription_id}/discontinue")
-def discontinue_prescription(
-    prescription_id: int,
-    db: Session = Depends(get_db)
-):
-
-    prescription = crud.discontinue_prescription(db, prescription_id)
-
-    if not prescription:
-        raise HTTPException(status_code=404, detail="Prescription not found")
-
-    return {
-        "prescription_id": prescription_id,
-        "status": "DISCONTINUED"
-    }
-
-# =====================================================
-# GET PRESCRIPTIONS BY VISIT
-# =====================================================
-
-@app.get("/prescriptions")
-def get_prescriptions(
-    visit_id: int,
-    db: Session = Depends(get_db)
-):
-    prescriptions = (
-        db.query(models.Prescription)
-        .filter(models.Prescription.visit_id == visit_id)
-        .all()
+    prediction = Prediction(
+        visit_id=visit.id,
+        classification=label,
+        risk_probability=prob,
+        override_triggered=override
     )
 
-    return prescriptions
+    db.add(prediction)
+    db.commit()
+    db.refresh(prediction)
 
-# =====================================================
-# GET ALL VISITS (Dashboard)
-# =====================================================
+    return {
+        "visit_id": visit.id,
+        "classification": label,
+        "risk_probability": prob,
+        "override_triggered": override
+    }
 
-from sqlalchemy.orm import joinedload
-import models
 
-@app.get("/visits")
-def get_all_visits(db: Session = Depends(get_db)):
-    visits = (
-        db.query(models.Visit)
-        .options(joinedload(models.Visit.prediction))
-        .all()
-    )
+# ==============================
+# GET PREDICTIONS FOR VISIT
+# ==============================
 
-    result = []
+@app.get("/predictions/{visit_id}")
+def get_predictions(visit_id: int, db: Session = Depends(get_db)):
 
-    for v in visits:
-        result.append({
-            "id": v.id,
-            "status": v.status,
-            "created_at": v.created_at,
-            "classification": v.prediction.classification if v.prediction else None,
-            "risk_probability": v.prediction.risk_probability if v.prediction else None,
-        })
+    preds = db.query(Prediction).filter(Prediction.visit_id == visit_id).all()
 
-    return result
+    return preds

@@ -1,62 +1,74 @@
-import os
 import joblib
 import numpy as np
+from scipy.sparse import hstack
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ARTIFACT_PATH = os.path.join(BASE_DIR, "artifacts_final")
+model = joblib.load("artifacts_binary_final_v2/xgb_binary_model.pkl")
+tfidf = joblib.load("artifacts_binary_final_v2/tfidf.pkl")
+scaler = joblib.load("artifacts_binary_final_v2/scaler.pkl")
+numeric_features = joblib.load("artifacts_binary_final_v2/numeric_features.pkl")
 
-model = joblib.load(os.path.join(ARTIFACT_PATH, "xgb_binary_model.pkl"))
-scaler = joblib.load(os.path.join(ARTIFACT_PATH, "scaler.pkl"))
-tfidf = joblib.load(os.path.join(ARTIFACT_PATH, "tfidf.pkl"))
-numeric_features = joblib.load(os.path.join(ARTIFACT_PATH, "numeric_features.pkl"))
-
-
-def compute_derived(data):
-    shock_index = data["pulse"] / (data["systolic_bp"] + 1)
-    bp_diff = data["systolic_bp"] - data["diastolic_bp"]
-
-    instability_score = 0
-    if data["temperature"] > 101: instability_score += 1
-    if data["temperature"] < 95: instability_score += 1
-    if data["systolic_bp"] < 90: instability_score += 1
-    if data["pulse"] > 120: instability_score += 1
-    if data["respiration"] > 24: instability_score += 1
-
-    age_shock = data["age"] * shock_index
-
-    return shock_index, bp_diff, instability_score, age_shock
+THRESHOLD = 0.30
 
 
-def predict(data):
+def derive_features(data: dict):
 
-    shock_index, bp_diff, instability_score, age_shock = compute_derived(data)
+    data["Shock_Index"] = data["PULSE"] / (data["BPSYS"] + 1)
+    data["BP_DIFF"] = data["BPSYS"] - data["BPDIAS"]
 
-    numeric_input = [
-        data["age"],
-        data["temperature"],
-        data["pulse"],
-        data["respiration"],
-        data["systolic_bp"],
-        data["diastolic_bp"],
-        data["pain_scale"],
-        data["rfv1"] or 0,
-        data["rfv2"] or 0,
-        data["rfv3"] or 0,
-        1 if data["arrival_mode"] == "Ambulance" else 0,
-        1 if data["ambtransfer"] else 0,
-        shock_index,
-        bp_diff,
-        instability_score,
-        age_shock
-    ]
+    data["Temp_High"] = int(data["TEMPF"] > 100.4)
+    data["Temp_Low"] = int(data["TEMPF"] < 95)
+    data["BP_Low"] = int(data["BPSYS"] < 90)
+    data["BP_High"] = int(data["BPSYS"] >= 180 or data["BPDIAS"] >= 120)
+    data["Resp_Abnormal"] = int(data["RESPR"] < 12 or data["RESPR"] > 24)
+    data["Pulse_Abnormal"] = int(data["PULSE"] < 50 or data["PULSE"] > 120)
 
-    numeric_scaled = scaler.transform([numeric_input])
-    text_vector = tfidf.transform([data["rfv_text"] or ""])
+    data["Instability_Score"] = (
+        data["Temp_High"]
+        + data["Temp_Low"]
+        + data["BP_Low"]
+        + data["BP_High"]
+        + data["Resp_Abnormal"]
+        + data["Pulse_Abnormal"]
+    )
 
-    final_input = np.hstack((numeric_scaled, text_vector.toarray()))
+    data["Is_Child"] = int(data["AGE"] < 18)
+    data["Is_Elderly"] = int(data["AGE"] >= 65)
+    data["High_Pain"] = int(data["PAINSCALE"] >= 7)
 
-    probability = float(model.predict_proba(final_input)[0][1])
+    data["Extreme_Phys"] = int(
+        data["BPSYS"] < 80
+        or data["PULSE"] > 150
+        or data["RESPR"] > 35
+    )
 
-    classification = "Critical" if probability >= 0.5 else "Needs Review"
+    return data
 
-    return probability, classification
+
+def override_logic(data: dict):
+    return (
+        data["BPSYS"] < 80
+        or data["PULSE"] > 150
+        or data["RESPR"] > 35
+        or data["Instability_Score"] >= 4
+    )
+
+
+def predict(data: dict):
+
+    data = derive_features(data)
+
+    if override_logic(data):
+        return "Critical", 1.0, True
+
+    numeric_input = np.array([[data[f] for f in numeric_features]])
+    numeric_scaled = scaler.transform(numeric_input)
+
+    text_input = tfidf.transform([data["RFV_TEXT_ALL"]])
+
+    # IMPORTANT: match training dense format
+    X = hstack([text_input, numeric_scaled]).toarray()
+
+    prob = model.predict_proba(X)[0][1]
+    label = "Critical" if prob >= THRESHOLD else "Needs Review"
+
+    return label, float(prob), False
