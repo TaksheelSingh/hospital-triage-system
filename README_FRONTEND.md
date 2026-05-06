@@ -1,108 +1,154 @@
-# 🩺 Hospital Triage System – Frontend
+# Secure AI-Driven Emergency Assistance Framework – Frontend
 
-This is the frontend for the Hospital Triage and Doctor Consultation System.
+## Overview
 
-Built using **Next.js (App Router)** with **Tailwind CSS** and **ShadCN UI**.
+This frontend application provides the user interface for the AI-assisted emergency triage system.
+
+The frontend allows:
+- Patient intake and visit registration
+- Real-time severity prediction display
+- Doctor dashboard access
+- Prescription management
+- Monitoring of patient workflows
+
+The frontend communicates with the FastAPI backend through REST APIs.
 
 ---
 
-# 🚀 Tech Stack
+# Technologies Used
 
 - Next.js
-- React (Client Components)
+- React.js
 - Tailwind CSS
-- ShadCN UI
-- Lucide Icons
+- Axios
+- TypeScript
 
 ---
 
-# 🧩 Features
+# Project Structure
 
-## Doctor Dashboard
-
-- Patient search by name
-- Hierarchical patient → visit selection
-- Scrollable visit list
-- RHS structured clinical view
-- Floating prescription modal
-- Visit status badge
-- Classification toggle (Critical / Needs Review)
-- Prescription status dropdown
-- Mark visit as completed
-
----
-
-# 🎨 UI Architecture
-
-## Layout Structure
-
-Sidebar  
-Header (sticky, consistent across system)  
-Two-panel grid:
-
-### Left Panel
-- Search card (compact)
-- Scrollable patient + visit list
-- Format:  
-  `Patient Name – Visit ID`
-
-### Right Panel
-- Structured patient vitals form layout
-- RFV display
-- Clinical snapshot
-- Button to open prescription modal
-
-### Prescription Modal (Floating)
-- Add prescription row
-- Dynamic table
-- Status dropdown
-- Delete action
-- Mark as Completed button
+```text
+frontend/
+│
+├── app/
+├── components/
+├── pages/
+├── services/
+├── styles/
+├── public/
+└── package.json
+```
 
 ---
 
-# 🔁 Workflow
+# Frontend Setup Instructions
 
-1. Search patient
-2. Select visit
-3. Review intake data
-4. Add prescriptions
-5. Update classification
-6. Mark visit completed
-
----
-
-# ⚙ Setup Instructions
-
-## Install Dependencies
+## 1. Install Dependencies
 
 ```bash
 npm install
-Run Dev Server
+```
+
+---
+
+# 2. Run Development Server
+
+```bash
 npm run dev
+```
 
 Frontend runs at:
 
+```text
 http://localhost:3000
-🔗 Backend Connection
+```
 
-Backend must be running at:
+---
 
+# Backend Connection
+
+Ensure the backend server is running:
+
+```text
 http://127.0.0.1:8000
+```
 
-Ensure CORS is enabled for:
+Frontend API requests are connected through:
+- Axios
+- REST API endpoints
 
-http://localhost:3000
+---
 
-🧪 Current Status
-Search route fixed
-Proper visit filtering
-Scrollable UI panels
-Floating prescription modal implemented
-Layout proportional adjustments applied
-Header consistency maintained
+# Main Features
 
-📌 Notes
-All medical data displayed is from backend API.
-Prescription total tablets calculated server-side.
-Visit selection required before consultation.
+## Patient Intake Interface
+- Patient registration
+- Visit entry
+- Vital signs input
+
+---
+
+## Doctor Dashboard
+- View patient severity predictions
+- Monitor visit history
+- Manage prescriptions
+
+---
+
+## Severity Prediction Display
+The frontend displays:
+- Predicted severity level
+- Risk probability
+- Override status
+
+---
+
+## Prescription Management
+Doctors can:
+- Add prescriptions
+- Update medicine details
+- Manage treatment records
+
+---
+
+# Security Features
+
+The frontend supports secure communication with backend APIs.
+
+Sensitive data is processed securely through:
+- AES-encrypted backend storage
+- Integrity-verified prediction outputs
+- IDS-monitored backend services
+
+---
+
+# Workflow
+
+```text
+Patient Input
+      ↓
+Backend API
+      ↓
+ML Severity Prediction
+      ↓
+Cybersecurity Validation
+      ↓
+Doctor Dashboard Response
+```
+
+---
+
+# Output
+
+The frontend provides:
+- Interactive hospital workflow management
+- Real-time emergency triage assistance
+- Prescription and patient monitoring
+- Secure integration with backend services
+
+---
+
+# Authors
+
+- Taksheel Rawat
+- Aryan Arora

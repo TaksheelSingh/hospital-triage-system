@@ -1,159 +1,219 @@
-# 🏥 Hospital Triage System – Backend & ML
+# Secure AI-Driven Emergency Assistance Framework – Backend
 
-This is the backend service for the Hospital Triage and Doctor Consultation System.
+## Overview
 
-Built using **FastAPI**, **SQLAlchemy**, and **PostgreSQL**, it integrates a Machine Learning model for visit risk classification.
+This backend system powers the AI-assisted emergency triage platform.  
+It provides REST APIs for patient management, visit handling, severity prediction, prescription generation, and cybersecurity monitoring.
+
+The backend integrates:
+- Machine Learning–based severity prediction
+- Clinical safety override logic
+- AES-256 encryption for sensitive patient data
+- SHA-256 integrity verification
+- Intrusion detection and security logging
 
 ---
 
-# 🚀 Tech Stack
+# Technologies Used
 
 - FastAPI
-- SQLAlchemy ORM
+- Python 3.11+
 - PostgreSQL
-- Pydantic
+- SQLAlchemy
+- XGBoost
+- Scikit-learn
+- Cryptography
 - Uvicorn
-- Custom ML binary classification model
 
 ---
 
-# 🧠 ML Model
+# Project Structure
 
-The ML model predicts visit severity:
-
-- Critical
-- Needs Review
-
-Output includes:
-- classification
-- risk_probability (0–1)
-- model_version
-
-Prediction is automatically triggered during visit creation.
-
----
-
-# 🗄 Database Schema
-
-## Patients
-
-| Column | Type |
-|--------|------|
-| id | SERIAL PRIMARY KEY |
-| full_name | VARCHAR(100) |
-| age | INT |
-| gender | VARCHAR(10) |
-| email | VARCHAR(100) |
-| phone | VARCHAR(20) UNIQUE |
-| created_at | TIMESTAMP |
+```text
+backend/
+│
+├── main.py
+├── crud.py
+├── database.py
+├── models.py
+├── schemas.py
+├── ml.py
+├── requirements.txt
+│
+├── security/
+│   ├── encryption.py
+│   ├── hashing.py
+│   └── ids.py
+│
+├── artifacts_binary_final_v2/
+│   ├── xgb_binary_model.pkl
+│   ├── tfidf.pkl
+│   ├── scaler.pkl
+│   └── numeric_features.pkl
+│
+└── routers/
+```
 
 ---
 
-## Visits
+# Backend Setup Instructions
 
-| Column | Type |
-|--------|------|
-| id | SERIAL PRIMARY KEY |
-| patient_id | FK → patients(id) |
-| temperature | FLOAT |
-| pulse | INT |
-| systolic_bp | INT |
-| diastolic_bp | INT |
-| pain_scale | INT |
-| rfv_text | TEXT |
-| status | OPEN / IN_REVIEW / COMPLETED |
-| doctor_notes | TEXT |
-| created_at | TIMESTAMP |
+## 1. Create Virtual Environment
 
----
+```bash
+python -m venv venv
+```
 
-## Predictions
+Activate virtual environment:
 
-| Column | Type |
-|--------|------|
-| id | SERIAL PRIMARY KEY |
-| visit_id | FK → visits(id) |
-| classification | Critical / Needs Review |
-| risk_probability | FLOAT |
-| model_version | VARCHAR |
-| created_at | TIMESTAMP |
+### Windows
+```bash
+venv\Scripts\activate
+```
+
+### Linux / Mac
+```bash
+source venv/bin/activate
+```
 
 ---
 
-## Prescriptions
-
-| Column | Type |
-|--------|------|
-| id | SERIAL PRIMARY KEY |
-| visit_id | FK → visits(id) |
-| medicine_name | VARCHAR |
-| dosage_per_day | INT |
-| tablets_per_dose | INT |
-| start_date | DATE |
-| end_date | DATE |
-| total_tablets | INT |
-| status | ACTIVE / DISCONTINUED |
-| created_at | TIMESTAMP |
-
----
-
-# 🔌 API Endpoints
-
-## Patients
-
-
-POST /patients
-GET /patients/search-by-name?patient_name=
-GET /patients/{patient_id}
-
-
----
-
-## Visits
-
-
-POST /visits/predict
-GET /visits?patient_id=
-PATCH /visits/{visit_id}/status?new_status=
-PATCH /visits/{visit_id}/classification?classification=
-
-
----
-
-## Prescriptions
-
-
-POST /prescriptions
-GET /prescriptions?visit_id=
-PATCH /prescriptions/{id}/discontinue
-
-
----
-
-# ⚙ Setup Instructions
-
-## 1️⃣ Install Dependencies
+# 2. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
-2️⃣ Run Server
+```
+
+---
+
+# 3. Configure PostgreSQL Database
+
+Create PostgreSQL database:
+
+```sql
+CREATE DATABASE hospital_triage;
+```
+
+Update database configuration in:
+
+```text
+database.py
+```
+
+Example:
+
+```python
+DATABASE_URL = "postgresql://postgres:password@localhost/hospital_triage"
+```
+
+---
+
+# 4. Run Backend Server
+
+```bash
 uvicorn main:app --reload
+```
 
 Backend runs at:
 
+```text
 http://127.0.0.1:8000
+```
 
-🧪 Features Implemented
-Patient search (fixed routing conflict)
-ML severity prediction integration
-Visit status update
-Classification toggle
-Prescription creation & discontinuation
-Foreign key cascade integrity
-Query filtering by patient_id and visit_id
+Swagger API Documentation:
 
-📌 Notes
-All calculations for total_tablets are done server-side.
-Classification updates are validated.
-Visit must exist before prediction is stored.
-Phone number uniqueness enforced.
+```text
+http://127.0.0.1:8000/docs
+```
+
+---
+
+# Machine Learning Pipeline
+
+The backend uses an XGBoost-based binary classification model.
+
+## Features Used
+- Vital signs
+- Pain scale
+- RFV codes
+- TF-IDF processed complaint text
+- Engineered instability indicators
+
+## Final Classification
+- Critical
+- Needs Review
+
+Threshold tuning is used to improve recall for critical patients.
+
+---
+
+# Cybersecurity Features
+
+## AES-256 Encryption
+Sensitive patient fields such as:
+- Email
+- Phone number
+- RFV text
+
+are encrypted before database storage.
+
+---
+
+## SHA-256 Integrity Verification
+
+Prediction outputs are hashed using SHA-256.
+
+If prediction data is modified:
+- Hash mismatch is detected
+- Security event is logged
+
+---
+
+## Intrusion Detection System (IDS)
+
+The IDS monitors:
+- Prediction tampering
+- Severity overrides
+- Abnormal access behavior
+
+Events are stored in:
+```text
+security_logs
+```
+
+---
+
+# API Modules
+
+| Module | Purpose |
+|---|---|
+| Patient API | Patient registration and retrieval |
+| Visit API | Visit and vitals handling |
+| Prediction API | ML severity prediction |
+| Prescription API | Prescription generation |
+| Security API | Logging and monitoring |
+
+---
+
+# Sample Security Events
+
+- HASH_MISMATCH
+- SEVERITY_OVERRIDE
+
+---
+
+# Output
+
+The backend provides:
+- Real-time patient severity prediction
+- Secure patient data storage
+- Clinical override support
+- Security event monitoring
+- Prescription management
+
+---
+
+# Authors
+
+- Taksheel Rawat
+- Aryan Arora
