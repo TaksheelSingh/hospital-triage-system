@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
-
+from datetime import date
 
 class PatientCreate(BaseModel):
     full_name: str
@@ -32,3 +32,28 @@ class PredictionResponse(BaseModel):
     classification: str
     risk_probability: float
     override_triggered: bool
+
+
+class PrescriptionCreate(BaseModel):
+    visit_id: int
+    medicine_name: str
+    dosage_per_day: int
+    tablets_per_dose: int
+    start_date: date
+    end_date: date
+    remarks: Optional[str] = None
+
+class PrescriptionResponse(BaseModel):
+    id: int
+    visit_id: int
+    medicine_name: str
+    dosage_per_day: int
+    tablets_per_dose: int
+    start_date: date
+    end_date: date
+    total_tablets: int
+    remarks: Optional[str]
+    status: str
+
+    class Config:
+        orm_mode = True
