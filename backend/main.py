@@ -18,6 +18,9 @@ from sqlalchemy import Column, Integer, String, Text, DateTime
 
 app = FastAPI()
 
+@app.get("/")
+def root():
+    return {"message": "Hospital Triage API Running"}
 
 # Dependency
 def get_db():

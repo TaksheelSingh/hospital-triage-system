@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from typing import Optional
+from typing import Literal
 from datetime import date
+from pydantic import ConfigDict
 
 class PatientCreate(BaseModel):
     full_name: str
@@ -18,7 +20,7 @@ class VisitCreate(BaseModel):
     systolic_bp: int
     diastolic_bp: int
     pain_scale: int
-    arrival_mode: str
+    arrival_mode: Literal["Ambulance", "Other"]
     ambtransfer: bool
     injury: int
     rfv1: int
@@ -55,5 +57,4 @@ class PrescriptionResponse(BaseModel):
     remarks: Optional[str]
     status: str
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

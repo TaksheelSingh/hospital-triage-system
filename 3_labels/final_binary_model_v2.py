@@ -136,6 +136,75 @@ for threshold in [0.5, 0.4, 0.3]:
 
 print("\nROC AUC:", roc_auc_score(y_test, y_prob))
 
+# ---------------- CONFUSION MATRIX ----------------
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+
+threshold = 0.3
+y_pred_final = (y_prob >= threshold).astype(int)
+
+cm = confusion_matrix(y_test, y_pred_final)
+
+plt.figure(figsize=(5,4))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=["Non-Critical", "Critical"],
+            yticklabels=["Non-Critical", "Critical"])
+
+plt.xlabel("Predicted Label")
+plt.ylabel("Actual Label")
+plt.title("Confusion Matrix (Threshold = 0.3)")
+
+plt.tight_layout()
+plt.savefig("confusion_matrix.png", dpi=300)
+plt.show()
+
+# ---------------- ROC CURVE ----------------
+from sklearn.metrics import roc_curve, auc
+
+fpr, tpr, _ = roc_curve(y_test, y_prob)
+roc_auc = auc(fpr, tpr)
+
+plt.figure(figsize=(5,4))
+plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.2f}")
+plt.plot([0,1], [0,1], linestyle="--")
+
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve")
+
+plt.legend(loc="lower right")
+plt.tight_layout()
+plt.savefig("roc_curve.png", dpi=300)
+plt.show()
+
+# ---------------- THRESHOLD VISUAL ----------------
+from sklearn.metrics import precision_score, recall_score
+
+thresholds = [0.5, 0.4, 0.3]
+precisions = []
+recalls = []
+
+for t in thresholds:
+    y_pred_t = (y_prob >= t).astype(int)
+    precisions.append(precision_score(y_test, y_pred_t))
+    recalls.append(recall_score(y_test, y_pred_t))
+
+plt.figure(figsize=(5,4))
+plt.plot(thresholds, recalls, marker='o', label="Recall (Critical)")
+plt.plot(thresholds, precisions, marker='o', label="Precision (Critical)")
+
+plt.xlabel("Threshold")
+plt.ylabel("Score")
+plt.title("Threshold vs Precision/Recall")
+
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
+plt.savefig("threshold_curve.png", dpi=300)
+plt.show()
+
 # ---------------- SAVE ARTIFACTS ----------------
 art = r"C:\Users\Taksheel Rawat\Downloads\mp\artifacts_binary_final_v2"
 os.makedirs(art, exist_ok=True)

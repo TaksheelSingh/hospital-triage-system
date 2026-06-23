@@ -135,3 +135,24 @@ if false_negatives.shape[0] > 0:
 
 real_world_miss = false_negatives.shape[0] - override_caught
 print("Real-world misses after override:", real_world_miss)
+
+# ---------------- GRAPHS ----------------
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+labels = ["False Negatives", "Recovered by Override", "Remaining Misses"]
+values = [
+    false_negatives.shape[0],
+    override_caught,
+    real_world_miss
+]
+
+plt.figure(figsize=(5,4))
+sns.barplot(x=labels, y=values)
+
+plt.title("Clinical Override Effectiveness")
+plt.ylabel("Number of Cases")
+
+plt.tight_layout()
+plt.savefig("override_analysis.png", dpi=300)
+plt.show()
