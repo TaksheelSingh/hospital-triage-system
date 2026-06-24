@@ -244,10 +244,6 @@ def run_triage(visit_id: int, db: Session = Depends(get_db)):
         f"{prediction.risk_probability}"
         f"{prediction.override_triggered}"
         f"{prediction.model_version}"
-        f"{visit.temperature}"
-        f"{visit.pulse}"
-        f"{visit.respiration}"
-        f"{visit.systolic_bp}"
     )
 
     prediction.integrity_hash = compute_hash(hash_data)
